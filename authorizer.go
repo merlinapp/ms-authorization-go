@@ -1,4 +1,4 @@
-package ms_authorization_go
+package authorization
 
 import (
 	"crypto/rsa"

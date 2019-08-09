@@ -1,4 +1,4 @@
-module ms-authorization-go
+module ms_authorization_go
 
 go 1.12
 

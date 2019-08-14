@@ -24,12 +24,12 @@ func NewAuthenticator() *Authorizer {
 	var certs map[string]string
 	res, err := http.Get(CertsAPIEndpoint)
 	if err != nil {
-		return nil
+		return &Authorizer{}
 	}
 	defer res.Body.Close()
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil
+		return &Authorizer{}
 	}
 	json.Unmarshal(data, &certs)
 

@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"log"
@@ -66,11 +65,16 @@ func (a *Authorizer) BackAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 		token = values[1]
-		if token != os.Getenv("BACKEND_TOKEN") {
+		hasBackendToken := token == os.Getenv("BACKEND_TOKEN")
+		if hasBackendToken {
+			c.Next()
+		} else if correct, id := a.verifyIDToken(token); correct {
+			c.Set("userId", id)
+			c.Next()
+		} else {
 			respondWithError(c, 401, "Invalid API token")
 			return
 		}
-		c.Next()
 	}
 }
 

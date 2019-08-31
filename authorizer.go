@@ -47,12 +47,13 @@ func (a *Authorizer) TokenAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 		token = values[1]
-		correct, id := a.verifyIDToken(token)
+		correct, userId, userRole := a.verifyIDToken(token)
 		if !correct {
 			respondWithError(c, 401, "Invalid API token")
 			return
 		}
-		c.Set("userId", id)
+		c.Set("userId", userId)
+		c.Set("role", userRole)
 		c.Next()
 	}
 }
@@ -69,8 +70,9 @@ func (a *Authorizer) BackAuthMiddleware() gin.HandlerFunc {
 		hasBackendToken := token == os.Getenv("BACKEND_TOKEN")
 		if hasBackendToken {
 			c.Next()
-		} else if correct, id := a.verifyIDToken(token); correct {
-			c.Set("userId", id)
+		} else if correct, userId, userRole := a.verifyIDToken(token); correct {
+			c.Set("userId", userId)
+			c.Set("role", userRole)
 			c.Next()
 		} else {
 			respondWithError(c, 401, "Invalid API token")
@@ -130,19 +132,27 @@ func (a *Authorizer) GetCertificateFromToken(token *jwt.Token) ([]byte, error) {
 	return a.getCertificate(kidString), nil
 }
 
-func (a *Authorizer) verifyIDToken(token string) (bool, string) {
+func (a *Authorizer) verifyIDToken(token string) (bool, string, string) {
 	claims, ok := a.verifyJWT(token)
+
 	if !ok {
 		log.Printf("error verifying ID token")
-		return false, ""
+		return false, "", ""
 	}
+
 	userId := claims["user_id"]
 	if userId == nil {
 		log.Printf("error verifying ID token")
-		return false, ""
+		return false, "", ""
 	}
 
-	return true, userId.(string)
+	userRole := claims["role"]
+	if userRole == nil {
+		log.Printf("error verifying ID token")
+		return false, "", ""
+	}
+
+	return true, userId.(string), userRole.(string)
 }
 
 func verifyPayload(t *jwt.Token) (claims jwt.MapClaims, ok bool) {

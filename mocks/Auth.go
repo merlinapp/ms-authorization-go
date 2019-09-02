@@ -10,8 +10,8 @@ type Auth struct {
 	mock.Mock
 }
 
-// BackAuthMiddleware provides a mock function with given fields:
-func (_m *Auth) BackAuthMiddleware() gin.HandlerFunc {
+// TokenAndBackAuthMiddleware provides a mock function with given fields:
+func (_m *Auth) TokenAndBackAuthMiddleware() gin.HandlerFunc {
 	ret := _m.Called()
 
 	var r0 gin.HandlerFunc
@@ -28,6 +28,22 @@ func (_m *Auth) BackAuthMiddleware() gin.HandlerFunc {
 
 // TokenAuthMiddleware provides a mock function with given fields:
 func (_m *Auth) TokenAuthMiddleware() gin.HandlerFunc {
+	ret := _m.Called()
+
+	var r0 gin.HandlerFunc
+	if rf, ok := ret.Get(0).(func() gin.HandlerFunc); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(gin.HandlerFunc)
+		}
+	}
+
+	return r0
+}
+
+// BackAuthMiddleware provides a mock function with given fields:
+func (_m *Auth) BackAuthMiddleware() gin.HandlerFunc {
 	ret := _m.Called()
 
 	var r0 gin.HandlerFunc

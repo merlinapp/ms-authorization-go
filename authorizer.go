@@ -58,7 +58,7 @@ func (a *Authorizer) TokenAuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-func (a *Authorizer) BackAuthMiddleware() gin.HandlerFunc {
+func (a *Authorizer) TokenAndBackAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.Request.Header.Get("Authorization")
 		values := strings.Split(token, "Bearer ")
@@ -73,6 +73,25 @@ func (a *Authorizer) BackAuthMiddleware() gin.HandlerFunc {
 		} else if correct, userId, userRole := a.verifyIDToken(token); correct {
 			c.Set("userId", userId)
 			c.Set("role", userRole)
+			c.Next()
+		} else {
+			respondWithError(c, 401, "Invalid API token")
+			return
+		}
+	}
+}
+
+func (a *Authorizer) BackAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.Request.Header.Get("Authorization")
+		values := strings.Split(token, "Bearer ")
+		if token == "" || len(values) != 2 {
+			respondWithError(c, 401, "API token required")
+			return
+		}
+		token = values[1]
+		hasBackendToken := token == os.Getenv("BACKEND_TOKEN")
+		if hasBackendToken {
 			c.Next()
 		} else {
 			respondWithError(c, 401, "Invalid API token")

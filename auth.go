@@ -6,5 +6,6 @@ import (
 
 type Auth interface {
 	TokenAuthMiddleware() gin.HandlerFunc
+	TokenAndBackAuthMiddleware() gin.HandlerFunc
 	BackAuthMiddleware() gin.HandlerFunc
 }

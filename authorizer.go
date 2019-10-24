@@ -167,8 +167,8 @@ func (a *Authorizer) verifyIDToken(token string) (bool, string, string) {
 
 	userRole := claims["role"]
 	if userRole == nil {
-		log.Printf("error verifying ID token")
-		return false, "", ""
+		log.Printf("user role not found")
+		return true, userId.(string), "NO_ROLE"
 	}
 
 	return true, userId.(string), userRole.(string)

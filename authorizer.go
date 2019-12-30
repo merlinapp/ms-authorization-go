@@ -1,6 +1,7 @@
 package authorization
 
 import (
+	"context"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
@@ -38,18 +39,84 @@ func NewAuthenticator() *Authorizer {
 	}
 }
 
-func (a *Authorizer) TokenAuthMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		token := c.Request.Header.Get("Authorization")
+func (a *Authorizer) TokenAuthMiddleware(h http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		token := r.Header.Get("Authorization")
 		values := strings.Split(token, "Bearer ")
 		if token == "" || len(values) != 2 {
-			respondWithError(c, 401, "API token required")
+			respondWithError(w, http.StatusUnauthorized, "API token required")
 			return
 		}
 		token = values[1]
 		correct, userId, userRole := a.verifyIDToken(token)
 		if !correct {
-			respondWithError(c, 401, "Invalid API token")
+			respondWithError(w, http.StatusUnauthorized, "Invalid API Token")
+			return
+		}
+		ctx := context.WithValue(r.Context(), "userId", userId)
+		ctx = context.WithValue(ctx, "role", userRole)
+
+		h.ServeHTTP(w, r.WithContext(ctx))
+	}
+	return http.HandlerFunc(fn)
+}
+
+func (a *Authorizer) TokenAndBackAuthMiddleware(h http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		token := r.Header.Get("Authorization")
+		values := strings.Split(token, "Bearer ")
+		if token == "" || len(values) != 2 {
+			respondWithError(w, http.StatusUnauthorized, "API token required")
+			return
+		}
+		token = values[1]
+		hasBackendToken := token == os.Getenv("BACKEND_TOKEN")
+		if hasBackendToken {
+			h.ServeHTTP(w, r)
+		} else if correct, userId, userRole := a.verifyIDToken(token); correct {
+			ctx := context.WithValue(r.Context(), "userId", userId)
+			ctx = context.WithValue(ctx, "role", userRole)
+			h.ServeHTTP(w, r.WithContext(ctx))
+		} else {
+			respondWithError(w, http.StatusUnauthorized, "Invalid API Token")
+			return
+		}
+
+	}
+	return http.HandlerFunc(fn)
+}
+
+func (a *Authorizer) BackAuthMiddleware(h http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		token := r.Header.Get("Authorization")
+		values := strings.Split(token, "Bearer ")
+		if token == "" || len(values) != 2 {
+			respondWithError(w, http.StatusUnauthorized, "API token required")
+			return
+		}
+		token = values[1]
+		hasBackendToken := token == os.Getenv("BACKEND_TOKEN")
+		if !hasBackendToken {
+			respondWithError(w, http.StatusUnauthorized, "Invalid API Token")
+			return
+		}
+		h.ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(fn)
+}
+
+func (a *Authorizer) GinTokenAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.Request.Header.Get("Authorization")
+		values := strings.Split(token, "Bearer ")
+		if token == "" || len(values) != 2 {
+			ginRespondWithError(c, 401, "API token required")
+			return
+		}
+		token = values[1]
+		correct, userId, userRole := a.verifyIDToken(token)
+		if !correct {
+			ginRespondWithError(c, 401, "Invalid API token")
 			return
 		}
 		c.Set("userId", userId)
@@ -58,12 +125,12 @@ func (a *Authorizer) TokenAuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-func (a *Authorizer) TokenAndBackAuthMiddleware() gin.HandlerFunc {
+func (a *Authorizer) GinTokenAndBackAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.Request.Header.Get("Authorization")
 		values := strings.Split(token, "Bearer ")
 		if token == "" || len(values) != 2 {
-			respondWithError(c, 401, "API token required")
+			ginRespondWithError(c, 401, "API token required")
 			return
 		}
 		token = values[1]
@@ -75,18 +142,18 @@ func (a *Authorizer) TokenAndBackAuthMiddleware() gin.HandlerFunc {
 			c.Set("role", userRole)
 			c.Next()
 		} else {
-			respondWithError(c, 401, "Invalid API token")
+			ginRespondWithError(c, 401, "Invalid API token")
 			return
 		}
 	}
 }
 
-func (a *Authorizer) BackAuthMiddleware() gin.HandlerFunc {
+func (a *Authorizer) GinBackAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.Request.Header.Get("Authorization")
 		values := strings.Split(token, "Bearer ")
 		if token == "" || len(values) != 2 {
-			respondWithError(c, 401, "API token required")
+			ginRespondWithError(c, 401, "API token required")
 			return
 		}
 		token = values[1]
@@ -94,7 +161,7 @@ func (a *Authorizer) BackAuthMiddleware() gin.HandlerFunc {
 		if hasBackendToken {
 			c.Next()
 		} else {
-			respondWithError(c, 401, "Invalid API token")
+			ginRespondWithError(c, 401, "Invalid API token")
 			return
 		}
 	}
@@ -115,8 +182,16 @@ func (a *Authorizer) downloadCertificates() {
 	a.Certs = certs
 }
 
-func respondWithError(c *gin.Context, code int, message interface{}) {
+func ginRespondWithError(c *gin.Context, code int, message interface{}) {
 	c.AbortWithStatusJSON(code, gin.H{"error": message})
+}
+
+func respondWithError(w http.ResponseWriter, code int, message interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	err := make(map[string]interface{})
+	err["error"] = message
+	json.NewEncoder(w).Encode(err)
 }
 
 var CertsAPIEndpoint = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"

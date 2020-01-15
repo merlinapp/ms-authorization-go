@@ -193,7 +193,7 @@ func (a *Authorizer) verifyIDToken(token string) (bool, string, string) {
 
 	userRole := claims["role"]
 	if userRole == nil {
-		log.Printf("user role not found")
+		log.Printf("user role not found for user %s, with token %s", userId, token)
 		return true, userId.(string), "NO_ROLE"
 	}
 

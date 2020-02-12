@@ -70,11 +70,11 @@ func TestAuthorizer_APIAuthMiddleware(t *testing.T) {
 
 func performHTTPTest(t *testing.T, serverApiKey, requestApiKey string, expectedCode int, shouldCalled bool) {
 
-	//called := false
+	called := false
 	auth := NewAuthenticator()
 
 	handler := func(w http.ResponseWriter, r *http.Request)  {
-
+		called = true
 	}
 	handlerTest := http.HandlerFunc(handler)
 	httHandler := auth.APIAuthMiddleware(handlerTest, serverApiKey)
@@ -87,7 +87,7 @@ func performHTTPTest(t *testing.T, serverApiKey, requestApiKey string, expectedC
 
 	resp := w.Result()
 
-	//assert.Equal(t, shouldCalled, called)
+	assert.Equal(t, shouldCalled, called)
 	assert.Equal(t, expectedCode, resp.StatusCode)
 }
 

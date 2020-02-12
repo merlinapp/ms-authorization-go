@@ -1,4 +1,4 @@
-module ms-authorization-go
+module github.com/merlinapp/ms-authorization-go
 
 go 1.13
 

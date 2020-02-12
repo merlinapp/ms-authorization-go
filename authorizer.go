@@ -17,6 +17,10 @@ import (
 	"strings"
 )
 
+const (
+	ApiKey = "Api-Key"
+)
+
 type Authorizer struct {
 	Certs map[string]string
 }
@@ -153,6 +157,40 @@ func (a *Authorizer) GinBackAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 	}
+}
+
+func (a *Authorizer) GinAPIAuthMiddleware(apiKey string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		apiKeyValue := c.Request.Header.Get(ApiKeyHeader)
+		if apiKeyValue == "" {
+			ginRespondWithError(c, http.StatusUnauthorized, ApiKeyRequired)
+			return
+		}
+		hasAPIKey := apiKeyValue == apiKey
+		if hasAPIKey {
+			c.Next()
+		} else {
+			ginRespondWithError(c, http.StatusUnauthorized, ApiKeyInvalid)
+			return
+		}
+	}
+}
+
+func (a *Authorizer) APIAuthMiddleware(h http.Handler, apiKey string) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		apiKeyHeader := r.Header.Get(ApiKeyHeader)
+		if apiKeyHeader == "" {
+			respondWithError(w, http.StatusUnauthorized, ApiKeyRequired)
+			return
+		}
+		hasApiKey := apiKeyHeader == apiKey
+		if !hasApiKey {
+			respondWithError(w, http.StatusUnauthorized, ApiKeyInvalid)
+			return
+		}
+		h.ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(fn)
 }
 
 func (a *Authorizer) verifyJWT(t string) (claims jwt.MapClaims, ok bool) {

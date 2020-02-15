@@ -162,6 +162,7 @@ func (a *Authorizer) GinBackAuthMiddleware() gin.HandlerFunc {
 func (a *Authorizer) GinAPIAuthMiddleware(apiKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		apiKeyValue := c.Request.Header.Get(ApiKeyHeader)
+		addGinAPIHeader(c)
 		if apiKeyValue == "" {
 			ginRespondWithError(c, http.StatusUnauthorized, ApiKeyRequired)
 			return
@@ -169,6 +170,7 @@ func (a *Authorizer) GinAPIAuthMiddleware(apiKey string) gin.HandlerFunc {
 		hasAPIKey := apiKeyValue == apiKey
 		if hasAPIKey {
 			c.Next()
+
 		} else {
 			ginRespondWithError(c, http.StatusUnauthorized, ApiKeyInvalid)
 			return
@@ -176,9 +178,34 @@ func (a *Authorizer) GinAPIAuthMiddleware(apiKey string) gin.HandlerFunc {
 	}
 }
 
+func addGinAPIHeader(c *gin.Context) {
+
+	hs := c.Writer.Header()
+	allow := hs.Get(AccessControlAllowHeaders)
+
+	value := ""
+	if len(allow) == 0 {
+		value = ApiKeyHeader
+	}  else {
+		value = fmt.Sprintf("%s,%s", allow, ApiKeyHeader)
+	}
+
+	hs.Set(AccessControlAllowHeaders, value)
+}
+
 func (a *Authorizer) APIAuthMiddleware(h http.Handler, apiKey string) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		apiKeyHeader := r.Header.Get(ApiKeyHeader)
+
+		allow := w.Header().Get(AccessControlAllowHeaders)
+		value := ""
+		if len(allow) == 0 {
+			value = ApiKeyHeader
+		} else {
+			value = fmt.Sprintf("%s,%s", allow, ApiKeyHeader)
+		}
+		w.Header().Set(AccessControlAllowHeaders, value)
+
 		if apiKeyHeader == "" {
 			respondWithError(w, http.StatusUnauthorized, ApiKeyRequired)
 			return

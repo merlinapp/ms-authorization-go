@@ -5,6 +5,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -46,9 +47,11 @@ func performGinTest(t *testing.T, serverApiKey,requestApiKey  string,codeExpecte
 
 	assert.Equal(t, shouldCalled,called)
 	assert.Equal(t, codeExpected, w.Code)
+
+	allowHeaders := w.Header().Get(AccessControlAllowHeaders)
+	containsApiKeyHeaders := strings.Contains(allowHeaders, ApiKeyHeader)
+	assert.True(t,containsApiKeyHeaders)
 }
-
-
 
 
 func TestAuthorizer_APIAuthMiddleware(t *testing.T) {
@@ -89,5 +92,9 @@ func performHTTPTest(t *testing.T, serverApiKey, requestApiKey string, expectedC
 
 	assert.Equal(t, shouldCalled, called)
 	assert.Equal(t, expectedCode, resp.StatusCode)
+
+	allowHeaders := resp.Header.Get(AccessControlAllowHeaders)
+	containsApiKeyHeaders := strings.Contains(allowHeaders, ApiKeyHeader)
+	assert.True(t,containsApiKeyHeaders)
 }
 

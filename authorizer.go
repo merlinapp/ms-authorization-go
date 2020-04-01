@@ -25,7 +25,7 @@ type Authorizer struct {
 	Certs map[string]string
 }
 
-func NewAuthenticator() *Authorizer {
+func NewAuthenticator() Auth {
 	var certs map[string]string
 	res, err := http.Get(CertsAPIEndpoint)
 	if err != nil {
@@ -186,7 +186,7 @@ func addGinAPIHeader(c *gin.Context) {
 	value := ""
 	if len(allow) == 0 {
 		value = ApiKeyHeader
-	}  else {
+	} else {
 		value = fmt.Sprintf("%s,%s", allow, ApiKeyHeader)
 	}
 

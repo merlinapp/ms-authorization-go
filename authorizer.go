@@ -121,7 +121,7 @@ func (a *Authorizer) GinTokenAuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-// Deprecated, use V2
+// Deprecated, use TokenAndApiKey
 func (a *Authorizer) GinTokenAndBackAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token, ok := getToken(c.Request.Header)
@@ -143,7 +143,7 @@ func (a *Authorizer) GinTokenAndBackAuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-func (a *Authorizer) GinTokenAndBackAuthMiddlewareV2(apiKey string) gin.HandlerFunc {
+func (a *Authorizer) TokenAndApiKey(apiKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token, isToken := getToken(c.Request.Header)
 		if isToken && a.isValidToken(token, c) {

@@ -121,6 +121,7 @@ func (a *Authorizer) GinTokenAuthMiddleware() gin.HandlerFunc {
 	}
 }
 
+// Deprecated, use V2
 func (a *Authorizer) GinTokenAndBackAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token, ok := getToken(c.Request.Header)
@@ -140,6 +141,29 @@ func (a *Authorizer) GinTokenAndBackAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 	}
+}
+
+func (a *Authorizer) GinTokenAndBackAuthMiddlewareV2() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token, isToken := getToken(c.Request.Header)
+		if isToken && a.isValidToken(token, c) {
+			c.Next()
+		} else if isApiKey(c.Request.Header) {
+			c.Next()
+		} else {
+			ginRespondWithError(c, http.StatusUnauthorized, "Permission denied")
+			return
+		}
+	}
+}
+
+func (a *Authorizer) isValidToken(token string, c *gin.Context) bool {
+	if isValid, userId, userRole := a.verifyIDToken(token); isValid {
+		c.Set("userId", userId)
+		c.Set("role", userRole)
+		return true
+	}
+	return false
 }
 
 func (a *Authorizer) GinBackAuthMiddleware() gin.HandlerFunc {
@@ -308,6 +332,17 @@ func readPublicKey(cert []byte) (*rsa.PublicKey, error) {
 		return nil, errors.New("not RSA public key")
 	}
 	return publicKey, nil
+}
+
+func isApiKey(headers http.Header) bool {
+	apiKey := headers.Get(ApiKeyHeader)
+	if apiKey == "" {
+		return false
+	}
+	if apiKey != os.Getenv("BACKEND_API_KEY") {
+		return false
+	}
+	return true
 }
 
 func getToken(headers http.Header) (string, bool) {

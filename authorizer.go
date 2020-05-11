@@ -143,12 +143,12 @@ func (a *Authorizer) GinTokenAndBackAuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-func (a *Authorizer) GinTokenAndBackAuthMiddlewareV2() gin.HandlerFunc {
+func (a *Authorizer) GinTokenAndBackAuthMiddlewareV2(apiKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token, isToken := getToken(c.Request.Header)
 		if isToken && a.isValidToken(token, c) {
 			c.Next()
-		} else if isApiKey(c.Request.Header) {
+		} else if isApiKey(c.Request.Header, apiKey) {
 			c.Next()
 		} else {
 			ginRespondWithError(c, http.StatusUnauthorized, "Permission denied")
@@ -334,12 +334,12 @@ func readPublicKey(cert []byte) (*rsa.PublicKey, error) {
 	return publicKey, nil
 }
 
-func isApiKey(headers http.Header) bool {
-	apiKey := headers.Get(ApiKeyHeader)
-	if apiKey == "" {
+func isApiKey(headers http.Header, apiKey string) bool {
+	apiKeyValue := headers.Get(ApiKeyHeader)
+	if apiKeyValue == "" {
 		return false
 	}
-	if apiKey != os.Getenv("BACKEND_API_KEY") {
+	if apiKeyValue != apiKey {
 		return false
 	}
 	return true

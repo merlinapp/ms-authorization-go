@@ -13,6 +13,7 @@ type Auth interface {
 
 	TokenAuthMiddleware(h http.Handler) http.Handler
 	TokenAndBackAuthMiddleware(h http.Handler) http.Handler
+	TokenAndApiKey(h http.Handler, apiKey string) http.Handler
 	BackAuthMiddleware(h http.Handler) http.Handler
 	APIAuthMiddleware(h http.Handler, apiKey string) http.Handler
 }

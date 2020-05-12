@@ -63,6 +63,7 @@ func (a *Authorizer) TokenAuthMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
+// Deprecated, use TokenAndApiKey
 func (a *Authorizer) TokenAndBackAuthMiddleware(h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		token, ok := getToken(r.Header)
@@ -84,6 +85,30 @@ func (a *Authorizer) TokenAndBackAuthMiddleware(h http.Handler) http.Handler {
 
 	}
 	return http.HandlerFunc(fn)
+}
+
+func (a *Authorizer) TokenAndApiKey(h http.Handler, apiKey string) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		token, isToken := getToken(r.Header)
+
+		if isToken && a.isValidToken(token) {
+			_, userId, userRole := a.verifyIDToken(token)
+			ctx := context.WithValue(r.Context(), "userId", userId)
+			ctx = context.WithValue(ctx, "role", userRole)
+			h.ServeHTTP(w, r.WithContext(ctx))
+		} else if isApiKey(r.Header, apiKey) {
+			h.ServeHTTP(w, r)
+		} else {
+			respondWithError(w, http.StatusUnauthorized, "Permission denied")
+			return
+		}
+	}
+	return http.HandlerFunc(fn)
+}
+
+func (a *Authorizer) isValidToken(token string) bool {
+	isValid, _, _ := a.verifyIDToken(token)
+	return isValid
 }
 
 func (a *Authorizer) BackAuthMiddleware(h http.Handler) http.Handler {
@@ -121,7 +146,6 @@ func (a *Authorizer) GinTokenAuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-// Deprecated, use TokenAndApiKey
 func (a *Authorizer) GinTokenAndBackAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token, ok := getToken(c.Request.Header)
@@ -141,29 +165,6 @@ func (a *Authorizer) GinTokenAndBackAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 	}
-}
-
-func (a *Authorizer) TokenAndApiKey(apiKey string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		token, isToken := getToken(c.Request.Header)
-		if isToken && a.isValidToken(token, c) {
-			c.Next()
-		} else if isApiKey(c.Request.Header, apiKey) {
-			c.Next()
-		} else {
-			ginRespondWithError(c, http.StatusUnauthorized, "Permission denied")
-			return
-		}
-	}
-}
-
-func (a *Authorizer) isValidToken(token string, c *gin.Context) bool {
-	if isValid, userId, userRole := a.verifyIDToken(token); isValid {
-		c.Set("userId", userId)
-		c.Set("role", userRole)
-		return true
-	}
-	return false
 }
 
 func (a *Authorizer) GinBackAuthMiddleware() gin.HandlerFunc {

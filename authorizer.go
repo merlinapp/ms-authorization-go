@@ -63,6 +63,7 @@ func (a *Authorizer) TokenAuthMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
+// Deprecated, use TokenAndApiKey
 func (a *Authorizer) TokenAndBackAuthMiddleware(h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		token, ok := getToken(r.Header)
@@ -84,6 +85,30 @@ func (a *Authorizer) TokenAndBackAuthMiddleware(h http.Handler) http.Handler {
 
 	}
 	return http.HandlerFunc(fn)
+}
+
+func (a *Authorizer) TokenAndApiKey(h http.Handler, apiKey string) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		token, isToken := getToken(r.Header)
+
+		if isToken && a.isValidToken(token) {
+			_, userId, userRole := a.verifyIDToken(token)
+			ctx := context.WithValue(r.Context(), "userId", userId)
+			ctx = context.WithValue(ctx, "role", userRole)
+			h.ServeHTTP(w, r.WithContext(ctx))
+		} else if isApiKey(r.Header, apiKey) {
+			h.ServeHTTP(w, r)
+		} else {
+			respondWithError(w, http.StatusUnauthorized, "Permission denied")
+			return
+		}
+	}
+	return http.HandlerFunc(fn)
+}
+
+func (a *Authorizer) isValidToken(token string) bool {
+	isValid, _, _ := a.verifyIDToken(token)
+	return isValid
 }
 
 func (a *Authorizer) BackAuthMiddleware(h http.Handler) http.Handler {
@@ -308,6 +333,17 @@ func readPublicKey(cert []byte) (*rsa.PublicKey, error) {
 		return nil, errors.New("not RSA public key")
 	}
 	return publicKey, nil
+}
+
+func isApiKey(headers http.Header, apiKey string) bool {
+	apiKeyValue := headers.Get(ApiKeyHeader)
+	if apiKeyValue == "" {
+		return false
+	}
+	if apiKeyValue != apiKey {
+		return false
+	}
+	return true
 }
 
 func getToken(headers http.Header) (string, bool) {
